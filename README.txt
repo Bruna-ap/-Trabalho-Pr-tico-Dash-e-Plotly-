@@ -13,6 +13,6 @@ Render:
 Build Command: pip install -r requirements.txt
 Start Command: gunicorn app:server
 
-Link público do Render: preencher depois do deploy.
+Link público do Render: https://dashboard-medalhas-olimpicas-bruna.onrender.com.
 
 O arquivo Country_Medals.csv é necessário para os gráficos e deve permanecer na raiz da pasta.
