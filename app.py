@@ -1,4 +1,6 @@
-"""Dashboard de Medalhas Olímpicas — trabalho prático de Visualização de Dados."""
+# Importa as bibliotecas utilizadas no projeto.
+# O Pandas organiza os dados, o Plotly cria os gráficos
+# e o Dash monta a página e os filtros.
 import os
 from pathlib import Path
 
@@ -6,11 +8,17 @@ import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output, dcc, html
 
+# Localiza a pasta em que este arquivo app.py está salvo.
 BASE_DIR = Path(__file__).resolve().parent
+# Define o caminho da base de medalhas, que fica na mesma pasta do app.py.
 CSV_PATH = BASE_DIR / "Country_Medals.csv"
+# Nomes das colunas usadas para as medalhas de ouro, prata e bronze.
 MEDALS = ["Gold", "Silver", "Bronze"]
+# Relaciona os nomes das medalhas na base aos rótulos que aparecem na tela.
 MEDAL_LABELS = {"Gold": "Ouro", "Silver": "Prata", "Bronze": "Bronze"}
+# Define as cores usadas para diferenciar as medalhas no gráfico de pizza.
 MEDAL_COLORS = {"Ouro": "#E9B949", "Prata": "#C5D0D8", "Bronze": "#CD8A5A"}
+#cores usadas
 COLORS = {
     "background": "#101820",
     "panel": "#1B2833",
@@ -20,26 +28,35 @@ COLORS = {
     "grid": "#354652",
 }
 
-
+# Lê o arquivo CSV e prepara os dados que serão usados
+# na criação dos gráficos.
 def load_data():
     """Load and prepare the Olympic medal dataset provided with the assignment."""
     if not CSV_PATH.exists():
         raise FileNotFoundError(
             "Arquivo Country_Medals.csv não encontrado. Coloque o CSV na mesma pasta de app.py."
         )
-
+        
+    # Lê o CSV e armazena os registros em um DataFrame do Pandas.
     data = pd.read_csv(CSV_PATH)
+    # Remove espaços extras dos nomes das colunas.
     data.columns = [str(column).strip() for column in data.columns]
+    # Define as colunas obrigatórias para o dashboard funcionar.
     required = ["Year", "Host_country", "Host_city", "Country_Name", *MEDALS]
+    # Procura colunas obrigatórias que estejam faltando na base.
     missing = [column for column in required if column not in data.columns]
     if missing:
         raise ValueError("Colunas ausentes na base Country_Medals.csv: " + ", ".join(missing))
-
+    
+    # Converte os anos para valores numéricos; valores inválidos são tratados como ausentes.
     data["Year"] = pd.to_numeric(data["Year"], errors="coerce")
+     # Converte as quantidades de medalhas para números e substitui valores inválidos por zero.
     for medal in MEDALS:
         data[medal] = pd.to_numeric(data[medal], errors="coerce").fillna(0)
+    # Padroniza os campos de texto, removendo espaços no começo e no fim.
     for column in ["Host_country", "Host_city", "Country_Name"]:
         data[column] = data[column].astype("string").str.strip()
+    # Remove linhas sem ano, país participante ou país sede.
     data = data.dropna(subset=["Year", "Country_Name", "Host_country"]).copy()
     data = data[data["Year"].between(1992, 2020)].copy()
     data["Year"] = data["Year"].astype(int)
@@ -51,11 +68,14 @@ def load_data():
     return data
 
 
+# Carrega a base de dados quando a aplicação é iniciada.
 df = load_data()
+# Cria a aplicação Dash e define o título exibido no navegador.
 app = Dash(__name__, title="Quadro de Medalhas Olímpicas")
+# Disponibiliza o servidor da aplicação para o Gunicorn no Render.
 server = app.server  # Render/Gunicorn entry point
 
-
+# Função auxiliar para montar cartões com o mesmo estilo visual.
 def panel(children, extra_style=None):
     style = {
         "backgroundColor": COLORS["panel"],
@@ -69,6 +89,7 @@ def panel(children, extra_style=None):
     return html.Div(children, style=style)
 
 
+# Padroniza as cores, a fonte, as margens, a legenda e a altura dos gráficos.
 def style_figure(fig, height=370):
     fig.update_layout(
         paper_bgcolor=COLORS["panel"],
@@ -84,13 +105,15 @@ def style_figure(fig, height=370):
     return fig
 
 
+# Cria uma lista de países sem valores vazios e sem duplicatas para o filtro da pizza.
 countries = sorted(df["Country_Name"].dropna().unique().tolist())
-# Use a combined Year + host label so the selection is clear to the user.
+# Monta a lista de edições olímpicas, com o ano, a cidade sede e o país sede.
 editions = (
     df[["Year", "Host_country", "Host_city"]]
     .drop_duplicates()
     .sort_values("Year")
 )
+# Transforma cada edição em uma opção do menu suspenso.
 edition_options = [
     {
         "label": f'{int(row.Year)} — {row.Host_city}, {row.Host_country}',
@@ -99,6 +122,7 @@ edition_options = [
     for row in editions.itertuples(index=False)
 ]
 
+# Define a estrutura e o conteúdo visual do dashboard.
 app.layout = html.Div(
     [
         html.Div(
@@ -120,7 +144,9 @@ app.layout = html.Div(
         ),
         panel(
             [
+                 # Texto que identifica o filtro global de medalhas.
                 html.Label("Filtro global — tipo de medalha", style={"fontWeight": "bold"}),
+                 # Exibe as opções Todas, Ouro, Prata e Bronze para o filtro global.
                 dcc.RadioItems(
                     id="medal-filter",
                     options=[
@@ -139,6 +165,7 @@ app.layout = html.Div(
                         html.Div(
                             [
                                 html.Label("País para o gráfico de pizza"),
+                                # Primeiro menu suspenso: permite selecionar o país do gráfico de pizza.
                                 dcc.Dropdown(
                                     id="country-filter",
                                     options=[{"label": country, "value": country} for country in countries],
@@ -150,7 +177,9 @@ app.layout = html.Div(
                         ),
                         html.Div(
                             [
+                                # Identifica o filtro de edição olímpica usado no gráfico de barras.
                                 html.Label("Ano olímpico (cidade e país sede) — gráfico de barras"),
+                                 # Segundo menu suspenso: seleciona o ano e mostra a cidade e o país sede.
                                 dcc.Dropdown(
                                     id="edition-filter",
                                     options=edition_options,
@@ -166,10 +195,13 @@ app.layout = html.Div(
             ],
             {"marginBottom": "18px"},
         ),
+        # Reserva o espaço do mapa mundial.
         panel(dcc.Graph(id="world-map", config={"displayModeBar": False}), {"marginBottom": "18px"}),
         html.Div(
             [
+                # Reserva o espaço do gráfico de área empilhada.
                 panel(dcc.Graph(id="area-chart", config={"displayModeBar": False})),
+                # Reserva o espaço do gráfico de barras.
                 panel(dcc.Graph(id="bar-chart", config={"displayModeBar": False})),
             ],
             style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(min(100%, 410px), 1fr))", "gap": "18px"},
@@ -181,6 +213,7 @@ app.layout = html.Div(
                     "O gráfico de pizza mostra ouro, prata e bronze acumulados entre 1992 e 2020 para o país selecionado.",
                     style={"color": COLORS["muted"], "marginTop": "7px"},
                 ),
+                # Reserva o espaço do gráfico de pizza.
                 dcc.Graph(id="pie-chart", config={"displayModeBar": False}),
             ],
             {"marginTop": "18px"},
@@ -199,19 +232,26 @@ app.layout = html.Div(
     },
 )
 
-
+# Liga os valores dos filtros às figuras que precisam ser atualizadas.
 @app.callback(
     Output("world-map", "figure"),
     Output("area-chart", "figure"),
     Output("bar-chart", "figure"),
     Output("pie-chart", "figure"),
+    # O callback recebe o tipo de medalha escolhido pelo usuário.
     Input("medal-filter", "value"),
+    # O callback recebe o país escolhido para o gráfico de pizza.
     Input("country-filter", "value"),
+     # O callback recebe a edição olímpica escolhida para o gráfico de barras.
     Input("edition-filter", "value"),
 )
+
+# Função que recalcula as figuras quando um dos filtros muda.
 def update_dashboard(medal_filter, selected_country, selected_year):
     """Update the three original charts from the global medal filter and the pie by country."""
+    # Usa uma cópia da base para os cálculos, sem alterar o DataFrame original.
     data = df.copy()
+    # Se a opção for Todas, soma as três medalhas; caso contrário, usa apenas a categoria selecionada.
     if medal_filter == "Todos":
         data["Selected_Medals"] = data[MEDALS].sum(axis=1)
         medal_title = "total de medalhas"
