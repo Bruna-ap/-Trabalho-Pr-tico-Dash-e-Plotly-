@@ -1,20 +1,21 @@
-
-/* Menu suspenso: */
-.Select-menu-outer {
-    background-color: #1B2833 !important;
-    border: 1px solid #354652 !important;
-}
-
-/* Texto das opções */
-.Select-option,
-.VirtualizedSelectOption {
+/* Fundo e texto das opções do menu suspenso */
+.Select-menu-outer,
+.Select-menu,
+.VirtualizedSelectOption,
+.Select-option {
     background-color: #1B2833 !important;
     color: #F4F7F8 !important;
 }
 
-/* Opção em destaque ao passar o mouse */
-.Select-option.is-focused,
-.VirtualizedSelectFocusedOption {
+/* Garantir a cor do texto dentro das opções */
+.VirtualizedSelectOption *,
+.Select-option * {
+    color: #F4F7F8 !important;
+}
+
+/* Opção destacada pelo mouse ou teclado */
+.VirtualizedSelectFocusedOption,
+.Select-option.is-focused {
     background-color: #354652 !important;
     color: #FFFFFF !important;
 }
@@ -22,5 +23,10 @@
 /* Opção selecionada */
 .Select-option.is-selected {
     background-color: #E9B949 !important;
+    color: #101820 !important;
+}
+
+/* Texto da opção selecionada */
+.Select-option.is-selected * {
     color: #101820 !important;
 }
