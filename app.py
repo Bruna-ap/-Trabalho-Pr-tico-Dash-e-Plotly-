@@ -60,10 +60,11 @@ def load_data():
     data = data.dropna(subset=["Year", "Country_Name", "Host_country"]).copy()
     data = data[data["Year"].between(1992, 2020)].copy()
     data["Year"] = data["Year"].astype(int)
-    # Match the country label used in the tutorial and in Plotly's country map.
+    
     data["Country_Name"] = data["Country_Name"].replace(
         {"United States": "United States of America"}
     )
+    #Calcula o total de medalhas de cada registro e devolve a tabela tratada.
     data["Total_Medals"] = data[MEDALS].sum(axis=1)
     return data
 
@@ -75,7 +76,7 @@ app = Dash(__name__, title="Quadro de Medalhas Olímpicas")
 # Disponibiliza o servidor da aplicação para o Gunicorn no Render.
 server = app.server  # Render/Gunicorn entry point
 
-# Função auxiliar para montar cartões com o mesmo estilo visual.
+# essa função cria os cartões que organizam os elementos visuais do dashboard.
 def panel(children, extra_style=None):
     style = {
         "backgroundColor": COLORS["panel"],
@@ -105,7 +106,7 @@ def style_figure(fig, height=370):
     return fig
 
 
-# Cria uma lista de países sem valores vazios e sem duplicatas para o filtro da pizza.
+#Essa linha cria a lista de países disponíveis para o usuário selecionar no gráfico de pizza..
 countries = sorted(df["Country_Name"].dropna().unique().tolist())
 # Monta a lista de edições olímpicas, com o ano, a cidade sede e o país sede.
 editions = (
@@ -122,7 +123,7 @@ edition_options = [
     for row in editions.itertuples(index=False)
 ]
 
-# Define a estrutura e o conteúdo visual do dashboard.
+# Aqui montamos a estrutura visual do dashboard.
 app.layout = html.Div(
     [
         html.Div(
@@ -165,7 +166,7 @@ app.layout = html.Div(
                         html.Div(
                             [
                                 html.Label("País para o gráfico de pizza"),
-                                # Primeiro menu suspenso: permite selecionar o país do gráfico de pizza.
+                                # Cria o menu para selecionar o país que será mostrado no gráfico de pizza..
                                 dcc.Dropdown(
                                     id="country-filter",
                                     options=[{"label": country, "value": country} for country in countries],
@@ -232,7 +233,7 @@ app.layout = html.Div(
     },
 )
 
-# Liga os valores dos filtros às figuras que precisam ser atualizadas.
+# Esse bloco conecta os filtros aos gráficos..
 @app.callback(
     Output("world-map", "figure"),
     Output("area-chart", "figure"),
@@ -249,7 +250,7 @@ app.layout = html.Div(
 # Função que recalcula as figuras quando um dos filtros muda.
 def update_dashboard(medal_filter, selected_country, selected_year):
     """Update the three original charts from the global medal filter and the pie by country."""
-    # Usa uma cópia da base para os cálculos, sem alterar o DataFrame original.
+    #Tratamento do filtro de medalhas.
     data = df.copy()
     # Se a opção for Todas, soma as três medalhas; caso contrário, usa apenas a categoria selecionada.
     if medal_filter == "Todos":
@@ -259,8 +260,11 @@ def update_dashboard(medal_filter, selected_country, selected_year):
         data["Selected_Medals"] = data[medal_filter]
         medal_title = f"medalhas de {MEDAL_LABELS[medal_filter].lower()}"
 
+    #Criação dos quatro gráficos
     # 1) Choropleth map: cumulative selected medal category from 1992 to 2020.
+    # Agrupa por país e soma as medalhas selecionadas para calcular os totais do mapa.
     country_totals = data.groupby("Country_Name", as_index=False)["Selected_Medals"].sum()
+    # Gráfico 1: cria o mapa coroplético, usando a cor para representar o total de medalhas.
     map_fig = px.choropleth(
         country_totals,
         locations="Country_Name",
@@ -273,10 +277,13 @@ def update_dashboard(medal_filter, selected_country, selected_year):
         labels={"Selected_Medals": "Medalhas"},
     )
     style_figure(map_fig, 470)
+    # Ajusta o fundo do mapa e remove a moldura e as linhas costeiras
     map_fig.update_geos(bgcolor=COLORS["panel"], showframe=False, showcoastlines=False)
 
     # 2) Stacked area chart: the ten countries with the largest totals under the filter.
+    # Seleciona os dez países com maior quantidade de medalhas. Depois os dados são agrupados por ano e país.
     top_countries = country_totals.nlargest(10, "Selected_Medals")["Country_Name"].tolist()
+    # Agrupa os dados desses países por ano e país para mostrar a evolução das medalhas.
     area_data = data[data["Country_Name"].isin(top_countries)].groupby(
         ["Year", "Country_Name"], as_index=False
     )["Selected_Medals"].sum()
@@ -291,10 +298,13 @@ def update_dashboard(medal_filter, selected_country, selected_year):
     style_figure(area_fig, 390)
 
     # 3) Bar chart: filter to the selected Olympic year/host edition.
+    # Gráfico 3: barras horizontais. considera apenas o ano selecionado e soma as medalhas por país.
     bar_data = data[data["Year"] == int(selected_year)].groupby(
         "Country_Name", as_index=False
     )["Selected_Medals"].sum().nlargest(10, "Selected_Medals").sort_values("Selected_Medals")
+     # Busca a cidade e o país sede da edição para incluir essas informações no título.
     edition = editions[editions["Year"] == int(selected_year)].iloc[0]
+    # Cria as barras horizontais para mostrar os dez maiores resultados da edição escolhida.
     bar_fig = px.bar(
         bar_data,
         x="Selected_Medals",
@@ -308,13 +318,16 @@ def update_dashboard(medal_filter, selected_country, selected_year):
 
     # 4) Pie chart: always show all three medal types for the chosen country.
     # The brief says the global medal filter applies to the three original charts.
+    # Gráfico 4: soma ouro, prata e bronze do país escolhido; a pizza mostra as três categorias.
     pie_totals = df[df["Country_Name"] == selected_country][MEDALS].sum()
+    # Organiza os três totais em uma tabela que será usada para montar a pizza.
     pie_data = pd.DataFrame(
         {
             "Medalha": ["Ouro", "Prata", "Bronze"],
             "Quantidade": [pie_totals["Gold"], pie_totals["Silver"], pie_totals["Bronze"]],
         }
     )
+    # Cria o gráfico de pizza e define uma cor para cada tipo de medalha.
     pie_fig = px.pie(
         pie_data,
         names="Medalha",
@@ -324,11 +337,16 @@ def update_dashboard(medal_filter, selected_country, selected_year):
         color_discrete_map=MEDAL_COLORS,
         hole=0.38,
     )
+     # Exibe o nome e a porcentagem nas fatias e a quantidade quando o usuário passa o mouse.
     pie_fig.update_traces(textposition="inside", textinfo="label+percent", hovertemplate="%{label}: %{value}<extra></extra>")
     style_figure(pie_fig, 360)
+    # Devolve as quatro figuras para o Dash atualizar o dashboard.
     return map_fig, area_fig, bar_fig, pie_fig
+    
 
-
+# Verifica se o arquivo está sendo executado diretamente.
 if __name__ == "__main__":
+    # Obtém a porta definida pelo ambiente de execução.
     port = int(os.environ.get("PORT", "8050"))
+    # Inicia o servidor do Dash.
     app.run(host="0.0.0.0", port=port, debug=False)
