@@ -1,4 +1,3 @@
-Trabalho Prático Dash e Plotly - Dashboard Quadro de Medalhas Olímpicas
 
 Para executar:
 1. Instale Python.
